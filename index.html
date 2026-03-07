@@ -46,14 +46,14 @@ h1 {
 	letter-spacing: 0.5px;
 }
 
-input[type="text"], input[type="number"], select {
+textarea, input[type="number"], select {
 	padding: 8px 10px;
 	border: 1px solid #ccc;
 	border-radius: 4px;
 	font-size: 0.95rem;
 }
 
-input[type="text"] { width: 300px; }
+textarea { width: 400px; height: 80px; resize: vertical; }
 input[type="number"] { width: 80px; }
 
 .checkbox-group {
@@ -100,7 +100,7 @@ canvas {
 <div class="controls">
 	<div class="control-group">
 		<label for="stitch_text">Text</label>
-		<input type="text" id="stitch_text" value="Hello World">
+		<textarea id="stitch_text">Hello World</textarea>
 	</div>
 	<div class="control-group">
 		<label for="font">Font</label>
@@ -306,15 +306,12 @@ function getGrid(text, fontName, maxCols, isRight) {
 	const font = fonts[fontName];
 	if (!font) return [];
 
-	// Word-wrap into chunks
-	let chunks;
-	const totalLen = text.length * (font.max_row || 10);
-	if (totalLen < maxCols) {
-		chunks = [text];
-	} else {
-		const words = text.split(' ');
-		chunks = [];
-		let chunkIdx = 0;
+	// Split on newlines first, then word-wrap each line into chunks
+	const chunks = [];
+	const lines = text.split('\n');
+	for (const line of lines) {
+		const words = line.split(' ');
+		let chunkIdx = chunks.length;
 		let thisLen = 0;
 		for (const word of words) {
 			let wordLen = 0;
@@ -397,6 +394,16 @@ function getGrid(text, fontName, maxCols, isRight) {
 			allRows.push({ data: row, fontRow: rk, globalRow: globalRow });
 			globalRow++;
 		}
+
+		// Add a blank row between chunks
+		const blankRow = new Array(maxCols).fill(false);
+		allRows.push({ data: blankRow, fontRow: null, globalRow: globalRow });
+		globalRow++;
+	}
+
+	// Remove trailing blank row
+	if (allRows.length && allRows[allRows.length - 1].fontRow === null) {
+		allRows.pop();
 	}
 
 	return allRows;
@@ -513,7 +520,7 @@ function render() {
 
 // Render on load and on Enter key
 document.getElementById('stitch_text').addEventListener('keydown', e => {
-	if (e.key === 'Enter') render();
+	if (e.key === 'Enter' && (e.metaKey || e.ctrlKey)) render();
 });
 render();
 </script>
