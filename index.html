@@ -518,7 +518,15 @@ function render() {
 	}
 }
 
-// Render on load and on Enter key
+// Load URL parameters into form
+const params = new URLSearchParams(window.location.search);
+if (params.has('text'))     document.getElementById('stitch_text').value = params.get('text');
+if (params.has('font'))     document.getElementById('font').value = params.get('font');
+if (params.has('width'))    document.getElementById('width').value = params.get('width');
+if (params.has('cellSize')) document.getElementById('cell_size').value = params.get('cellSize');
+if (params.has('right'))    document.getElementById('is_right').checked = params.get('right') === '1';
+
+// Render on load and on Cmd/Ctrl+Enter
 document.getElementById('stitch_text').addEventListener('keydown', e => {
 	if (e.key === 'Enter' && (e.metaKey || e.ctrlKey)) render();
 });
