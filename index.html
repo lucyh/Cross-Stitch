@@ -1,0 +1,521 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Cross Stitch Pattern Generator</title>
+<style>
+* { box-sizing: border-box; margin: 0; padding: 0; }
+
+body {
+	font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+	background: #f5f0eb;
+	color: #333;
+	padding: 20px;
+}
+
+h1 {
+	font-size: 1.4rem;
+	margin-bottom: 16px;
+	color: #5a3e2b;
+}
+
+.controls {
+	background: #fff;
+	border-radius: 8px;
+	padding: 16px;
+	margin-bottom: 20px;
+	box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+	display: flex;
+	flex-wrap: wrap;
+	gap: 12px;
+	align-items: end;
+}
+
+.control-group {
+	display: flex;
+	flex-direction: column;
+	gap: 4px;
+}
+
+.control-group label {
+	font-size: 0.8rem;
+	font-weight: 600;
+	color: #666;
+	text-transform: uppercase;
+	letter-spacing: 0.5px;
+}
+
+input[type="text"], input[type="number"], select {
+	padding: 8px 10px;
+	border: 1px solid #ccc;
+	border-radius: 4px;
+	font-size: 0.95rem;
+}
+
+input[type="text"] { width: 300px; }
+input[type="number"] { width: 80px; }
+
+.checkbox-group {
+	display: flex;
+	align-items: center;
+	gap: 6px;
+	padding-bottom: 4px;
+}
+
+.checkbox-group label {
+	font-size: 0.9rem;
+	cursor: pointer;
+}
+
+button {
+	padding: 8px 20px;
+	background: #5a3e2b;
+	color: #fff;
+	border: none;
+	border-radius: 4px;
+	font-size: 0.95rem;
+	cursor: pointer;
+}
+
+button:hover { background: #7a5e4b; }
+
+.grid-wrapper {
+	background: #fff;
+	border-radius: 8px;
+	padding: 16px;
+	box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+	overflow: auto;
+}
+
+canvas {
+	display: block;
+}
+</style>
+</head>
+<body>
+
+<h1>Cross Stitch Pattern Generator</h1>
+
+<div class="controls">
+	<div class="control-group">
+		<label for="stitch_text">Text</label>
+		<input type="text" id="stitch_text" value="Hello World">
+	</div>
+	<div class="control-group">
+		<label for="font">Font</label>
+		<select id="font">
+			<option value="serif" selected>Serif</option>
+			<option value="bubble">Bubble</option>
+			<option value="big_serif">Big Serif</option>
+		</select>
+	</div>
+	<div class="control-group">
+		<label for="width">Width (stitches)</label>
+		<input type="number" id="width" value="219">
+	</div>
+	<div class="control-group">
+		<label for="cell_size">Cell Size (px)</label>
+		<input type="number" id="cell_size" value="12" min="4" max="40">
+	</div>
+	<div class="control-group checkbox-group">
+		<input type="checkbox" id="is_right">
+		<label for="is_right">Right Aligned</label>
+	</div>
+	<div class="control-group">
+		<button onclick="render()">Generate</button>
+	</div>
+</div>
+
+<div class="grid-wrapper">
+	<canvas id="canvas"></canvas>
+</div>
+
+<script>
+// ============================================================
+// Font data extracted from the PHP source
+// ============================================================
+const fonts = {};
+
+// -- Serif font --
+fonts.serif = {
+	max_row: 8, min_row: -4,
+	letters: {}
+};
+const sl = fonts.serif.letters;
+sl['A'] = {6:'   xx',5:'  x x',4:' x  x',3:' x  x',2:' xxxx',1:' x  x',0:'xx  xx'};
+sl['B'] = {6:'xxxxx',5:' x  x',4:' x  x',3:' xxx',2:' x  x',1:' x  x',0:'xxxx'};
+sl['C'] = {6:' xxx',5:'x  x',4:'x  x',3:'x',2:'x',1:'x  x',0:' xx'};
+sl['D'] = {6:'xxxxx',5:' x  x',4:' x  x',3:' x  x',2:' x  x',1:' x  x',0:'xxxx'};
+sl['E'] = {6:'xxxxx',5:' x  x',4:' x',3:' xxx',2:' x',1:' x  x',0:'xxxxx'};
+sl['F'] = {6:'xxxxx',5:' x  x',4:' x',3:' xxx',2:' x',1:' x',0:'xxx'};
+sl['G'] = {6:' xxx',5:'x  x',4:'x',3:'x xx',2:'x  x',1:'x  x',0:' xxx'};
+sl['H'] = {6:'xx  xx',5:' x  x',4:' x  x',3:' x  x',2:' xxxx',1:' x  x',0:'xx  xx'};
+sl['I'] = {6:'xxx',5:' x',4:' x',3:' x',2:' x',1:' x',0:'xxx'};
+sl['J'] = {6:'xxx',5:' x',4:' x',3:' x',2:' x',1:' x',0:' x','-1':'x'};
+sl['K'] = {6:'xx  xx',5:' x  x',4:' x x',3:' xx',2:' x x',1:' x  x',0:'xx  xx'};
+sl['L'] = {6:'xxx',5:' x',4:' x',3:' x',2:' x',1:' x  x',0:'xxxxx'};
+sl['M'] = {6:'xx   xx',5:' xx xx',4:' x x x',3:' x   x',2:' x   x',1:' x   x',0:'xx   xx'};
+sl['N'] = {6:'xx   xx',5:' x   x',4:' xx  x',3:' x x x',2:' x  xx',1:' x   x',0:'xx   x'};
+sl['O'] = {6:' xxx',5:'x  x',4:'x  x',3:'x  x',2:'x  x',1:'x  x',0:'xxx'};
+sl['P'] = {6:'xxxxx',5:' x  x',4:' x  x',3:' x  x',2:' xxx',1:' x',0:'xx'};
+sl['Q'] = {6:' xxx',5:'x  x',4:'x  x',3:'x  x',2:'x  x',1:'x  x',0:'xxx','-1':'   x'};
+sl['R'] = {6:'xxxxx',5:' x  x',4:' x  x',3:' x x',2:' xx',1:' x x',0:'xx  x','-1':'     x'};
+sl['S'] = {6:' xxx',5:'x  x',4:' x',3:'  x',2:'   x',1:'x  x',0:'xxx'};
+sl['T'] = {6:'xxxxx',5:'x x x',4:'  x',3:'  x',2:'  x',1:'  x',0:' xxx'};
+sl['U'] = {6:'xx  xx',5:' x  x',4:' x  x',3:' x  x',2:' x  x',1:' x  x',0:'  xx'};
+sl['V'] = {6:'xx  xx',5:' x  x',4:' x  x',3:' x  x',2:' x x',1:' xx',0:' x'};
+sl['W'] = {6:'xx   xx',5:' x   x',4:' x   x',3:' x   x',2:' x x x',1:' xx xx',0:'xx   xx'};
+sl['X'] = {6:'xxx xxx',5:' x   x',4:'  x x',3:'   x',2:'  x x',1:' x   x',0:'xxx xxx'};
+sl['Y'] = {6:'xxx xxx',5:' x   x',4:'  x x',3:'   x',2:'   x',1:'   x',0:'  xxx'};
+sl['Z'] = {6:'xxxxx',5:'x   x',4:'   x',3:'  x',2:' x',1:'x   x',0:'xxxxx'};
+
+sl['a'] = {5:' xx',4:'x  x',3:'  xx',2:' x x',1:'x  x',0:' xxxx'};
+sl['b'] = {7:' x',6:'xx',5:' x xx',4:' xx x',3:' x  x',2:' x  x',1:' x  x',0:'xxxx'};
+sl['c'] = {5:'  x',4:' x x',3:'x',2:'x',1:'x  x',0:' xx'};
+sl['d'] = {8:'   x',7:'  xx',6:'   x',5:' x x',4:'x xx',3:'x  x',2:'x  x',1:'x  x',0:' xxxx'};
+sl['e'] = {5:' xxx',4:'x  x',3:'x x',2:'xx',1:'x  x',0:' xx'};
+sl['f'] = {6:'  x',5:' x',4:' xx',3:'xx',2:' x',1:' x',0:' x','-1':' x','-2':' x','-3':'x'};
+sl['g'] = {5:'  x x',4:' x x',3:'x  x',2:'x  x',1:'x  x',0:' xx','-1':'x','-2':' xx','-3':'   x','-4':' xx'};
+sl['h'] = {7:' x',6:'xx',5:' x  x',4:' x xx',3:' xx x',2:' x  x',1:' x  x',0:'xx  xx'};
+sl['i'] = {7:' x',5:' x',4:'xx',3:' x',2:' x',1:' x',0:'xxx'};
+sl['j'] = {7:' x',5:' x',4:'xx',3:' x',2:' x',1:' x',0:' x','-1':' x','-2':' x','-3':'x'};
+sl['k'] = {7:' x',6:'xx',5:' x  x',4:' x  x',3:' x x',2:' xx',1:' x x',0:'xx xx'};
+sl['l'] = {7:' x',6:'xx',5:' x',4:' x',3:' x',2:' x',1:' x',0:'xxx'};
+sl['m'] = {5:' x  x  x',4:'xx xx xx',3:' xx xx x',2:' x  x  x',1:' x  x  x',0:'xx  x  xx'};
+sl['n'] = {5:' x  x',4:'xx xx',3:' xx x',2:' x  x',1:' x  x',0:'xx  xx'};
+sl['o'] = {5:'  x',4:' x x',3:'x  x',2:'x  x',1:'x x',0:' x'};
+sl['p'] = {5:' x x',4:'xxx x',3:' x  x',2:' x  x',1:' x  x',0:' xxx','-1':' x','-2':'xx'};
+sl['q'] = {5:' xxxx',4:'x  x',3:'x  x',2:'x  x',1:'x xx',0:'xx x','-1':'   x','-2':'   xx'};
+sl['r'] = {5:' x  x',4:'xx xx',3:' xx x',2:' x',1:' x',0:'xxx'};
+sl['s'] = {5:' xxx',4:'x  x',3:' x',2:'  x',1:'x  x',0:'xxx'};
+sl['t'] = {7:' x',6:' x',5:'xxx',4:' x',3:' x',2:' x x',1:' xx',0:' x'};
+sl['u'] = {5:' x  xx',4:'xx  x',3:' x  x',2:' x  x',1:' x xx',0:' xx xx'};
+sl['v'] = {5:' x  xx',4:'xx  x',3:' x  x',2:' x x',1:' xx',0:' x'};
+sl['w'] = {5:' x  x  xx',4:'xx  x  x',3:' x  x  x',2:' x xx x',1:' xx xx',0:' x  x'};
+sl['x'] = {5:' x xx',4:'xx x',3:'  x',2:'  x',1:' x x',0:'xx xx'};
+sl['y'] = {5:' x  xx',4:'xx  x',3:' x  x',2:' x  x',1:' x xx',0:'  x x','-1':'    x','-2':'   x','-3':'  x'};
+sl['z'] = {5:'xxxx',4:'x  x',3:'  x',2:' x',1:'x  x',0:'xxxx'};
+
+sl['.'] = {1:'xx',0:'xx'};
+sl[','] = {1:' x',0:' x','-1':'x'};
+sl["'"] = {7:'x',6:'x'};
+sl['-'] = {3:'xxx'};
+sl['('] = {8:' x',7:'x',6:'x',5:'x',4:'x',3:'x',2:'x',1:'x',0:'  x'};
+sl[')'] = {8:'x',7:' x',6:' x',5:' x',4:' x',3:' x',2:' x',1:' x',0:'x'};
+sl['!'] = {8:'x',7:'x',6:'x',5:'x',4:'x',3:'x',2:'x',0:'x'};
+sl[':'] = {5:'xx',4:'xx',2:'xx',1:'xx'};
+sl['4'] = {6:'x x',5:'x x',4:'x x',3:'x x',2:'xxxx',1:'  x',0:'  x'};
+sl['0'] = {6:' xxx',5:'x   x',4:'x   x',3:'x   x',2:'x   x',1:'x   x',0:' xxx'};
+sl['1'] = {6:' x',5:'xx',4:' x',3:' x',2:' x',1:' x',0:' x'};
+sl['%'] = {5:' xx   x',4:'x  x x',3:' xx x',2:'   x xx',1:'  x x  x',0:' x   xx'};
+sl['+'] = {5:'  x',4:'  x',3:'xxxxx',2:'  x',1:'  x'};
+
+// -- Bubble font --
+fonts.bubble = {
+	max_row: 14, min_row: -6,
+	letters: {}
+};
+const bl = fonts.bubble.letters;
+bl['A'] = {9:'  xxxxx',8:' x     x',7:'x xxxxx x',6:'x x   x x',5:'x xxxxx x',4:'x x   x x',3:'x xxxxx x',2:'x x   x x',1:'x x   x x',0:' x    x x','-1':'      x x','-2':'      x x','-3':'       x'};
+bl['a'] = {6:'  xxx',5:' x   x',4:'x xxx x',3:'x x   x',2:'x xxx x',1:'x x x x',0:' x  x x','-1':'    x x','-2':'    x x','-3':'     x'};
+bl['H'] = {9:' xx     x',8:'x  x  x x',7:' x x  x x',6:' x x  x x',5:' x xxxx x',4:' x x  x x',3:' x xxxx x',2:' x x  x x',1:' x x  x x',0:'  x   x x','-1':'      x x','-2':'      x x','-3':'       x'};
+bl['K'] = {9:' xx    x',8:'x  x xx x',7:' x xx  x',6:' x   xx',5:' x xx x',4:' x x x x',3:' x x x x',2:' x x  x x',1:' x x  x x',0:'  x   x x','-1':'      x x','-2':'      x x','-3':'      x x','-4':'       x'};
+bl['d'] = {6:' xxxx',5:'x    x',4:' x xx x',3:' x xx x',2:' x xx x',1:'x    x',0:' xxxx'};
+bl['#'] = {8:'  x   x',7:' x x x x',6:'xx xxx xx',5:' x x x x',4:' x x x x',3:'xx xxx xx',2:' x x x x',1:'  x   x'};
+bl['o'] = {6:'  xxx',5:' x   x',4:'x xxx x',3:'x x x x',2:'x xxx x',1:' x   x',0:'  xxx'};
+bl['Z'] = {9:' xxxxxxx',8:'x       x',7:'x xxxx x',6:' x  x x',5:'   x x',4:'   x x',3:'  x x  x',2:' x xxxx x',1:'x       x',0:' xxxxxxx'};
+bl['z'] = {6:' xxxxx',5:'x     x',4:'x xx x',3:' xx xx',2:' x xx',1:'x     x',0:' xxxxx'};
+bl['2'] = {9:'  xxxxx',8:' x     x',7:'x xxxxx x',6:' x    x x',5:'     xx x',4:'   xx  x',3:' xx  xx',2:'x  xxxxx',1:'x       x',0:' xxxxxxx'};
+bl['3'] = {9:' xxxxxxx',8:'x       x',7:' xxxxx x',6:'   xx x',5:'  x  xx',4:'   xx  x',3:'     xx x',2:' xxxxxx x',1:'x      x',0:' xxxxxx'};
+bl['%'] = {10:'         xx',9:' xx     x x',8:'x  x   x x',7:'x  x  x x',6:' xx  x x',5:'    x x  xx',4:'   x x  x  x',3:'  x x   x  x',2:' x x     xx',1:' xx'};
+bl['+'] = {12:'     xxx',11:'    x   x',10:'    x   x',9:' xxxx   xxxx',8:'x           x',7:' xxxx   xxxx',6:'    x   x',5:'    x   x',4:'     xxx'};
+bl['x'] = {12:'xx      xx',11:'x x    x x',10:' x x  x x',9:'  x xx x',8:'   x  x',7:'   x  x',6:'  x xx x',5:' x x  x x',4:'x x    x x',3:'xx      xx'};
+bl['-'] = {9:' xxxxxxxxxx',8:'x          x',7:' xxxxxxxxxx'};
+bl['/'] = {12:'     xx',11:'    x  x',10:'     xx',9:' xxxxxxxxxx',8:'x          x',7:' xxxxxxxxxx',6:'     xx',5:'    x  x',4:'     xx'};
+bl['4'] = {14:' x',13:'x x',12:'x x',11:'x x',10:'x x',9:'x x   x',8:'x x  x x',7:'x x  x x',6:'x xxxx x',5:'x      x',4:' xxxxx x',3:'     x x',2:'     x x',1:'     x x',0:'     x x','-1':'     x x','-2':'     x x','-3':'     x x','-4':'      x'};
+bl['u'] = {6:' x   x ',5:'x x x x',4:'x x x x',3:'x x x x',2:'x xxx x',1:' x   x',0:'  xxx'};
+bl['s'] = {6:'  xxxx',5:' x    x',4:'x xxxx',3:' x   x',2:' xxxx x',1:'x    x',0:' xxxx'};
+bl['e'] = {6:'  xxx',5:' x   x',4:'x xxx x',3:'x   xx',2:'x xxx x',1:' x   x',0:'  xxx'};
+bl['R'] = {9:' xxxxxx',8:'x      x',7:' x xxxx x',6:' x xxxx x',5:' x x   x',4:' x xx x',3:' x x x x',2:' x x x x',1:' x x  x x',0:'  x   x x','-1':'      x x','-2':'      x x','-3':'      x x','-4':'       x'};
+bl['l'] = {6:' xx',5:'x  x',4:' x x',3:' x x',2:' x xxx',1:' x    x',0:'  xxxx'};
+bl['I'] = {9:' xxxxxxx',8:'x       x',7:' xx xxxx',6:'  x x',5:'  x x',4:'  x x',3:'  x x',2:' xx xxxx',1:'x       x',0:' xxxxxxx'};
+bl['n'] = {11:'     x',10:'    xxx',9:'    x x',8:'    x x',7:'    x x',6:' x  x x',5:'x x x x',4:'x  xx x',3:'x x x x',2:'x xx  x',1:'x x x x',0:' x   x'};
+bl['T'] = {9:' xxxxxxx',8:'x       x',7:'x xx xx x',6:' x x x x',5:'   x x',4:'   x x',3:'   x x',2:'   x x',1:'   x x',0:'   x x','-1':'   x x','-2':'   x x','-3':'   x x','-4':'    x'};
+bl['h'] = {6:' x   x',5:'x x x x',4:'x x x x',3:'x xxx x',2:'x     x',1:'x xxx x',0:' x  x x','-1':'    x x','-2':'    x x','-3':'    x x','-4':'    x x','-5':'    x x','-6':'     x'};
+bl['i'] = {6:' xxxxx',5:'x     x',4:' xx xx',3:' xx xx',2:' xx xx',1:'x     x',0:' xxxxx'};
+bl['W'] = {9:' x     x',8:'x x   x x',7:'x x   x x',6:'x x   x x',5:'x x   x x',4:'x x x x x',3:'x xx xx x',2:'x x x x x',1:' x x x x',0:'  x   x'};
+bl['B'] = {9:' xxxxxx',8:'x       x',7:'x xxxxx x',6:'x xxxxx x',5:'x      x',4:'x xxxxx x',3:'x x   x x',2:'x xxxxx x',1:'x       x',0:'xxxxxxx'};
+bl['v'] = {6:' x   x',5:'x x x x',4:'x x x x',3:' x x x',2:' x x x',1:'  x x',0:'   x'};
+bl[':'] = {5:'xx',4:'xx',2:'xx',1:'xx'};
+
+// -- Big Serif font --
+fonts.big_serif = {
+	max_row: 15, min_row: -2,
+	letters: {}
+};
+const bsl = fonts.big_serif.letters;
+bsl['B'] = {13:'xxxxxxxx',12:'xxxxxxxxx',11:'  xx   xx',10:'  xx    xx',9:'  xx    xx',8:'  xx   xx',7:'  xxxxxx',6:'  xx   xx',5:'  xx    xx',4:'  xx    xx',3:'  xx   xx',2:'  xx  xx',1:'xxxxxxxx',0:'xxxxxxx'};
+bsl['H'] = {13:'xxxx    xxxx',11:'  xx    xx',9:'  xx    xx',7:'  xx    xx',6:'  xxxxxxxx',5:'  xxxxxxxx',4:'  xx    xx',3:'  xx    xx',1:'xxxx    xxxx'};
+bsl['I'] = {13:'xxxxxx',11:'  xx',9:'  xx',7:'  xx',5:'  xx',3:'  xx',1:'xxxxxx'};
+bsl['R'] = {13:'xxxxxxxxx',12:'xxxxxxxxxx',11:'  xx    xx',10:'  xx    xx',9:'  xx    xx',8:'  xx   xx',7:'  xx  xx',6:'  xx xx',5:'  xxxx',3:'  xx  xx',2:'  xx   xx',1:' xxx    xx',0:'xxxx     xx','-1':'          xx','-2':'           xx'};
+bsl['T'] = {13:'xxxxxxxxxx',11:'xx  xx  xx',9:'    xx',7:'    xx',5:'    xx',3:'    xx',1:'  xxxxxx'};
+bsl['W'] = {13:'xxxx      xxxx',11:'  xx      xx',9:'  xx      xx',7:'  xx      xx',5:'  xx  xx  xx',4:'  xx xxxx xx',3:'  xxxx  xxxx',2:' xxxx    xxxx',1:'xxxx      xxxx'};
+bsl['e'] = {11:'  xxxxx',10:' xxxxxxx',9:'xx    xx',8:'xx   xx',7:'xx  xx',6:'xx xx',5:'xxxx',4:'xxx',3:'xx    xx',1:' xxxxxx',0:'  xxxx'};
+bsl['h'] = {15:'  xx',14:' xxx',13:'xxxx',11:'  xx    xx',10:'  xx   xxx',9:'  xx  xxxx',7:'  xxxx  xx',6:'  xxx   xx',5:'  xx    xx',3:'  xx    xx',1:'xxxx    xxxx'};
+bsl['i'] = {15:'  xx',11:'  xx',10:' xxx',9:'xxxx',7:'  xx',5:'  xx',3:'  xx',1:'xxxxxx'};
+bsl['l'] = {15:'  xx',14:' xxx',13:'xxxx',11:'  xx',9:'  xx',7:'  xx',5:'  xx',3:'  xx',1:'xxxxxx'};
+bsl['n'] = {11:'  xx    xx',10:' xxx   xxx',9:'xxxx  xxxx',7:'  xxxx  xx',5:'  xx    xx',3:'  xx    xx',1:'xxxx    xxxx'};
+bsl['o'] = {10:'    xx',9:'   xxxx',8:'  xx  xx',7:' xx   xx',6:'xx    xx',5:'xx    xx',4:'xx    xx',3:'xx   xx',2:'xx  xx',1:' xxxx',0:'  xx'};
+bsl['s'] = {11:' xxxxxx',9:'xx    xx',8:' xx',7:'  xx',6:'   xx',5:'    xx',4:'     xx',3:'xx    xx',1:' xxxxxx'};
+bsl['u'] = {11:'  xx    xxxx',9:'xxxx    xx',7:'  xx    xx',5:'  xx    xx',3:'  xx   xxx',2:'  xx  xxxx',1:'  xxxxx xxxx',0:'  xxxx  xxxx'};
+bsl['v'] = {11:'  xx    xxxx',10:' xxx    xxx',9:'xxxx    xx',7:'  xx    xx',6:'  xx   xx',5:'  xx  xx',4:'  xx xx',3:'  xxxx',2:'  xxx',1:'  xx'};
+bsl['.'] = {1:'xx',0:'xx'};
+bsl[':'] = {8:'xxx',7:'xxx',5:'',3:'xxx',1:'xxx',0:''};
+
+// Fill in missing even rows for big_serif (same as the PHP logic)
+for (const letter in bsl) {
+	const xA = bsl[letter];
+	const keys = Object.keys(xA).map(Number);
+	const top = Math.max(...keys);
+	const bottom = Math.min(...keys) - 1;
+	for (let i = bottom; i <= top; i++) {
+		if (i % 2 === 0 && !(i in xA)) {
+			xA[i] = xA[i + 1] || '';
+		}
+	}
+}
+
+// Compute max_length for each letter in each font
+for (const fontName in fonts) {
+	const f = fonts[fontName];
+	for (const letter in f.letters) {
+		const xA = f.letters[letter];
+		let maxLen = 0;
+		for (const row in xA) {
+			if (xA[row].length > maxLen) maxLen = xA[row].length;
+		}
+		f.letters[letter]._max_length = maxLen;
+	}
+}
+
+// ============================================================
+// Rendering
+// ============================================================
+function getGrid(text, fontName, maxCols, isRight) {
+	const font = fonts[fontName];
+	if (!font) return [];
+
+	// Word-wrap into chunks
+	let chunks;
+	const totalLen = text.length * (font.max_row || 10);
+	if (totalLen < maxCols) {
+		chunks = [text];
+	} else {
+		const words = text.split(' ');
+		chunks = [];
+		let chunkIdx = 0;
+		let thisLen = 0;
+		for (const word of words) {
+			let wordLen = 0;
+			for (let i = 0; i < word.length; i++) {
+				const ch = word[i];
+				const ml = font.letters[ch] ? font.letters[ch]._max_length : 2;
+				wordLen += ml + 1;
+			}
+			if (chunks[chunkIdx] && (thisLen + 3 + wordLen) > maxCols) {
+				chunkIdx++;
+				thisLen = 0;
+			} else if (chunks[chunkIdx]) {
+				chunks[chunkIdx] += ' ';
+				thisLen += 3;
+			}
+			if (!chunks[chunkIdx]) chunks[chunkIdx] = '';
+			chunks[chunkIdx] += word;
+			thisLen += wordLen;
+		}
+	}
+
+	// Build grid rows
+	const allRows = []; // each entry: array of booleans per column
+	let globalRow = 0;
+
+	for (const chunk of chunks) {
+		const trimmed = chunk.trim();
+		// Determine row range for this chunk
+		let maxRow = 0, minRow = 0;
+		for (let i = 0; i < trimmed.length; i++) {
+			const ch = trimmed[i];
+			const xA = font.letters[ch];
+			if (!xA) continue;
+			const keys = Object.keys(xA).filter(k => k[0] !== '_').map(Number);
+			const thisMax = Math.max(...keys);
+			const thisMin = Math.min(...keys);
+			if (thisMax > maxRow) maxRow = thisMax;
+			if (thisMin < minRow) minRow = thisMin;
+		}
+
+		// Build display for each row
+		const chunkDisplay = {}; // row => string of x and .
+		for (let i = 0; i < trimmed.length; i++) {
+			const ch = trimmed[i];
+			const xA = font.letters[ch];
+			const maxLength = xA ? xA._max_length : 2;
+
+			for (let j = maxRow; j >= minRow; j--) {
+				if (!chunkDisplay[j]) chunkDisplay[j] = '';
+				if (ch === ' ') {
+					chunkDisplay[j] += (j === 0 ? '--' : '..');
+				} else if (xA && xA[j] !== undefined) {
+					let s = xA[j];
+					if (s.length < maxLength) {
+						s += (j === 0 ? '-' : '.').repeat(maxLength - s.length);
+					}
+					chunkDisplay[j] += s;
+				} else {
+					chunkDisplay[j] += '.'.repeat(maxLength);
+				}
+				chunkDisplay[j] += '.';
+			}
+		}
+
+		// Convert to grid
+		const rowKeys = Object.keys(chunkDisplay).map(Number).sort((a, b) => b - a);
+		for (const rk of rowKeys) {
+			let line = chunkDisplay[rk];
+			const textLen = line.length;
+
+			if (isRight) {
+				line = '.'.repeat(Math.max(0, maxCols - textLen)) + line;
+			}
+
+			const row = [];
+			for (let c = 0; c < Math.max(line.length, maxCols); c++) {
+				const ch = c < line.length ? line[c] : '.';
+				row.push(ch === 'x');
+			}
+			allRows.push({ data: row, fontRow: rk, globalRow: globalRow });
+			globalRow++;
+		}
+	}
+
+	return allRows;
+}
+
+function render() {
+	const text = document.getElementById('stitch_text').value;
+	const fontName = document.getElementById('font').value;
+	const maxCols = parseInt(document.getElementById('width').value) || 219;
+	const isRight = document.getElementById('is_right').checked;
+	const cellSize = parseInt(document.getElementById('cell_size').value) || 12;
+
+	if (!text) return;
+
+	const rows = getGrid(text, fontName, maxCols, isRight);
+	if (!rows.length) return;
+
+	const numCols = Math.max(maxCols, ...rows.map(r => r.data.length));
+	const numRows = rows.length;
+
+	const headerHeight = 30;
+	const rowLabelWidth = 40;
+	const canvas = document.getElementById('canvas');
+	const totalW = rowLabelWidth + numCols * cellSize + 1;
+	const totalH = headerHeight + numRows * cellSize + 1;
+
+	canvas.width = totalW;
+	canvas.height = totalH;
+	const ctx = canvas.getContext('2d');
+
+	// Background
+	ctx.fillStyle = '#fff';
+	ctx.fillRect(0, 0, totalW, totalH);
+
+	const gridLeft = rowLabelWidth;
+	const gridTop = headerHeight;
+
+	// Draw cells
+	for (let r = 0; r < numRows; r++) {
+		for (let c = 0; c < numCols; c++) {
+			const filled = rows[r].data[c];
+			const x = gridLeft + c * cellSize;
+			const y = gridTop + r * cellSize;
+
+			if (filled) {
+				ctx.fillStyle = '#5a3e2b';
+				ctx.fillRect(x, y, cellSize, cellSize);
+				// Draw X
+				ctx.strokeStyle = '#f5f0eb';
+				ctx.lineWidth = 1;
+				ctx.beginPath();
+				ctx.moveTo(x + 1, y + 1);
+				ctx.lineTo(x + cellSize - 1, y + cellSize - 1);
+				ctx.moveTo(x + cellSize - 1, y + 1);
+				ctx.lineTo(x + 1, y + cellSize - 1);
+				ctx.stroke();
+			}
+		}
+	}
+
+	// Grid lines
+	ctx.strokeStyle = '#ddd';
+	ctx.lineWidth = 0.5;
+	for (let r = 0; r <= numRows; r++) {
+		const y = gridTop + r * cellSize;
+		ctx.beginPath();
+		ctx.moveTo(gridLeft, y);
+		ctx.lineTo(gridLeft + numCols * cellSize, y);
+		ctx.stroke();
+	}
+	for (let c = 0; c <= numCols; c++) {
+		const x = gridLeft + c * cellSize;
+		ctx.beginPath();
+		ctx.moveTo(x, gridTop);
+		ctx.lineTo(x, gridTop + numRows * cellSize);
+		ctx.stroke();
+	}
+
+	// Bold lines every 10
+	ctx.strokeStyle = '#999';
+	ctx.lineWidth = 1;
+	for (let r = 0; r <= numRows; r += 10) {
+		const y = gridTop + r * cellSize;
+		ctx.beginPath();
+		ctx.moveTo(gridLeft, y);
+		ctx.lineTo(gridLeft + numCols * cellSize, y);
+		ctx.stroke();
+	}
+	for (let c = 0; c <= numCols; c += 10) {
+		const x = gridLeft + c * cellSize;
+		ctx.beginPath();
+		ctx.moveTo(x, gridTop);
+		ctx.lineTo(x, gridTop + numRows * cellSize);
+		ctx.stroke();
+	}
+
+	// Column labels
+	ctx.fillStyle = '#666';
+	ctx.font = '9px monospace';
+	ctx.textAlign = 'center';
+	for (let c = 0; c < numCols; c += 10) {
+		const x = gridLeft + c * cellSize + cellSize / 2;
+		ctx.fillText(c.toString(), x, gridTop - 4);
+	}
+
+	// Row labels
+	ctx.textAlign = 'right';
+	ctx.textBaseline = 'middle';
+	for (let r = 0; r < numRows; r++) {
+		const y = gridTop + r * cellSize + cellSize / 2;
+		ctx.fillText(r.toString(), gridLeft - 4, y);
+	}
+}
+
+// Render on load and on Enter key
+document.getElementById('stitch_text').addEventListener('keydown', e => {
+	if (e.key === 'Enter') render();
+});
+render();
+</script>
+</body>
+</html>
